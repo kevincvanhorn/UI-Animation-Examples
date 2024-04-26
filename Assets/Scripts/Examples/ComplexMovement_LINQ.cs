@@ -9,6 +9,10 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace SDGA
 {
+    /// <summary>
+    /// Example using LINQ to run multiple animations in sync.
+    /// To execute, use the context menu.
+    /// </summary>
     internal class ComplexMovement_LINQ : MonoBehaviour
     {
         private List<ComplexMovementComponent> children = new();
@@ -24,7 +28,7 @@ namespace SDGA
         {
             children = GetComponentsInChildren<ComplexMovementComponent>(true).ToList();
             
-            // This is much better practice than the other examples. Link to the destroy token.
+            // This is much better practice. Link to the destroy token (showing here manually)
             Utils.CancelAndDisposeNew(ref animationCts); // Restart any running animations
             animationCts = CancellationTokenSource.CreateLinkedTokenSource(animationCts.Token, destroyCancellationToken); // Link to destroy token
             Animate(animationCts.Token).Forget();
@@ -39,12 +43,14 @@ namespace SDGA
         
         private async UniTask Animate(CancellationToken ct)
         {
+            // Ensure the scale of everything is reset when Animate is entered
             children.ForEach(x=>x.transform.localScale= Vector3.zero); // set children scale to zero
             
-            await UniTask.Yield(ct); // Wait for editor to prevent lagging.
+            await UniTask.Yield(ct); // Wait for next frame from editor to prevent lagging.
             int i = 0; // Delay index for offset
             
             // Animate radially out
+            // NOTE this is using deferred execution: meaning that these aren't executed until ITERATED over
             IEnumerable<UniTask> animationsOut = from c in children
                 select AnimateChildWithDelay(
                     isOut:true,
@@ -53,20 +59,41 @@ namespace SDGA
                     targetScale: 1f,
                     delayInSec: DelayFromIndex(++i), 
                     ct);
+
+            UniTask dummyHandle = Example1(ct);
+            UniTask emptyHandle = true ? default : Example3(ct); // Note Example3 is never executed  
             
+            // Now let's wait for three different sets of animations (running them all at the same time)
             await UniTask.WhenAll(
-                UniTask.WhenAll(animationsOut), Example()
+                UniTask.WhenAll(animationsOut), // 1. the set of all children animations. NOTE now this is iterated over and executed
+                Example2(ct),                   // 2. Another animation just to prove a point that this can be done as many times as needed 
+                dummyHandle,                    // 3. We can wait on Handles explicitly
+                emptyHandle                     // 4. Can just wait on nothing
             );
 
-            i = 0;
+            i = 0; 
             // Animate radially back in
             IEnumerable<UniTask> animationsIn = from c in children 
                 select AnimateChildWithDelay(false, c, transform.position, 0f, DelayFromIndex(++i), ct);
+            
             await UniTask.WhenAll(animationsIn);
         }
-
-        private UniTask Example()
+        
+        private async UniTask Example1(CancellationToken ct)
         {
+            Debug.Log("Started Example 1");
+            await UniTask.Yield(cancellationToken:ct);
+        }
+
+        private UniTask Example2(CancellationToken ct)
+        {
+            Debug.Log("Started Example 2");
+            return UniTask.CompletedTask;
+        }
+        
+        private UniTask Example3(CancellationToken ct)
+        {
+            Debug.Log("Started Example 3");
             return UniTask.CompletedTask;
         }
 
@@ -78,6 +105,7 @@ namespace SDGA
             void setter(Vector3 pos) => child.transform.position = pos; 
             await UniTask.WhenAll(
                 // DANGEROUS (child can be destroyed without cancelling & throw exception)
+                // Important to note that ct here is linked to THIS lifetime (the parent component)
                 AnimationUtils.InterpAction(child.transform, setter, child.transform.position, targetPos, duration, isOut ? interpolationCurveOut :interpolationCurveIn, ct),
                 
                 // SAFE (chlid cancels its own animation and links to this token)

@@ -35,13 +35,15 @@ namespace SDGA
             if (ct.IsCancellationRequested || setter == null) return;
             float timeElapsed = 0;
             float durInv = 1.0f / duration;
-            while (!ct.IsCancellationRequested && timeElapsed < duration)
+            while (timeElapsed < duration)
             {
                 setter(startValue + interpolation.Value(timeElapsed * durInv) * (endValue - startValue));
-                await UniTask.Yield(cancellationToken:ct);
+                await UniTask.Yield(cancellationToken:ct); // Note that with a cancellation here, we will throw an exception immediately from this point. This is the equivalent of `if(ct.IsCancellationRequested) return;`
                 timeElapsed += Time.deltaTime;
             }
 
+            // Note if we got here there wasn't a cancellation
+            Debug.Assert(!ct.IsCancellationRequested, "This shouldn't be possible");
             if (transform) setter(endValue); // Can pass null as transform to prevent setting on completion
         }
         
@@ -50,13 +52,15 @@ namespace SDGA
             if (ct.IsCancellationRequested || setter == null) return;
             float timeElapsed = 0;
             float durInv = 1.0f / duration;
-            while (!ct.IsCancellationRequested && timeElapsed < duration)
+            while (timeElapsed < duration)
             {
                 setter(startValue + interpolation.Value(timeElapsed * durInv) * (endValue - startValue));
-                await UniTask.Yield(cancellationToken:ct);
+                await UniTask.Yield(cancellationToken:ct); // Note that with a cancellation here, we will throw an exception immediately from this point. This is the equivalent of `if(ct.IsCancellationRequested) return;`
                 timeElapsed += Time.deltaTime;
             }
 
+            // Note if we got here there wasn't a cancellation
+            Debug.Assert(!ct.IsCancellationRequested, "This shouldn't be possible");
             if (transform) setter(endValue); // Can pass null as transform to prevent setting on completion
         }
     }

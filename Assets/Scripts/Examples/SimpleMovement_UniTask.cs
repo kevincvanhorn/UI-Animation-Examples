@@ -5,16 +5,24 @@ using UnityEngine;
 
 namespace SDGA
 {
+    /// <summary>
+    /// Like <see cref="SimpleMovement_Coroutine"/> This is a safe way to move a transform but using the UniTask library.
+    /// To see this work, enable an object with this component.
+    ///
+    /// Diferences:
+    /// 1. We're now using a rect transform offset to make this more consistent
+    /// </summary>
     [RequireComponent(typeof(RectTransform))]
     internal class SimpleMovement_UniTask : MonoBehaviour
     {
         [SerializeField] private float startX;
         [SerializeField] private float endX;
-        
         [SerializeField] private float duration = 1f;
+        
         private RectTransform _rect;
-        private CancellationTokenSource animationCts;
-        private float FEaseInOutCubic(float x)  => x < 0.5f ? 4.0f * x * x * x : 1.0f - Mathf.Pow(-2.0f * x + 2.0f, 3.0f) * 0.5f;
+        private CancellationTokenSource _animationCts;
+        
+        private static float FEaseInOutCubic(float x)  => x < 0.5f ? 4.0f * x * x * x : 1.0f - Mathf.Pow(-2.0f * x + 2.0f, 3.0f) * 0.5f;
 
         private void Awake()
         {
@@ -23,30 +31,34 @@ namespace SDGA
         
         private void OnEnable()
         {
-            if (!Application.isPlaying) return; // Don't call in editor
-            Utils.CancelAndDisposeNew(ref animationCts); // Stop all animations
-            DoAnimationLoop(animationCts.Token).Forget();
+            Utils.CancelAndDisposeNew(ref _animationCts); // Stop all animations & create a new cancellation token source
+            DoAnimationLoop(_animationCts.Token).Forget(); // Use that CTS to fire off a UniTask & not keep track of the handle.
         }
 
         private void OnDisable()
         {
-            if (!Application.isPlaying) return; // Don't call in editor
-            Utils.CancelAndDispose(ref animationCts); // Stop all animations
+            Utils.CancelAndDispose(ref _animationCts); // Stop all animations
         }
 
         private async UniTask DoAnimationLoop(CancellationToken ct)
         {
             try
             {
-                while (isActiveAndEnabled & !ct.IsCancellationRequested)
+                while (isActiveAndEnabled & !ct.IsCancellationRequested) // These are redundant checks b/c of the try catch but good practice
                 {
-                    await Animate(endX, destroyCancellationToken); // Animate forward
-                    await Animate(startX, destroyCancellationToken); // Animate back
+                    await Animate(endX, _animationCts.Token); // Animate forward
+                    await Animate(startX, _animationCts.Token); // Animate back
                 }
+            }
+            catch (System.OperationCanceledException)
+            {
+                // This is expected when ct is cancelled.
+                Debug.Log($"Cancelled animation loop for {GetType().Name}");
             }
             finally
             {
-                SetRectX(startX); // On cancellation, reset to start
+                if(_rect) SetRectX(startX); // On cancellation, reset to start. Unless this is being destroyed
+                else Debug.Log($"Cancellation was because of destroy for {GetType().Name}");
             }
         }
 
@@ -60,12 +72,12 @@ namespace SDGA
         /// </summary>
         private async UniTask Animate(float targetX, CancellationToken ct)
         {
-            float startX = _rect.anchoredPosition.x;
+            float x0 = _rect.anchoredPosition.x;
             float timeElapsed = 0;
             while (timeElapsed < duration && !ct.IsCancellationRequested)
             {
                 var t =  FEaseInOutCubic(timeElapsed / duration); // Interpolate [0,1]
-                SetRectX(startX + t* (targetX - startX)); // Action
+                SetRectX(x0 + t* (targetX - x0)); // Action
                 await UniTask.Yield(cancellationToken: ct); // Throws System.OperationCancelledException
                 timeElapsed += Time.deltaTime; // Progress t
             }
@@ -73,7 +85,7 @@ namespace SDGA
         
         private void OnDestroy()
         {
-            Utils.CancelAndDispose(ref animationCts);
+            Utils.CancelAndDispose(ref _animationCts);
         }
     }
 }

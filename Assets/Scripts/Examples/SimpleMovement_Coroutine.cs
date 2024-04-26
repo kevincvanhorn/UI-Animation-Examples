@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace SDGA
 {
+    /// <summary>
+    /// Safe way to move a transform using co-routines.
+    /// To see this work, enable an object with this component.
+    /// </summary>
     internal class SimpleMovement_Coroutine : MonoBehaviour
     {
         [SerializeField] private float startX;
@@ -11,11 +15,10 @@ namespace SDGA
         
         [SerializeField] private float duration = 1f;
 
-        private float FEaseInOutCubic(float x)  => x < 0.5f ? 4.0f * x * x * x : 1.0f - Mathf.Pow(-2.0f * x + 2.0f, 3.0f) * 0.5f;
+        private static float FEaseInOutCubic(float x)  => x < 0.5f ? 4.0f * x * x * x : 1.0f - Mathf.Pow(-2.0f * x + 2.0f, 3.0f) * 0.5f;
         
         private void OnEnable()
         {
-            if (!Application.isPlaying) return; // Don't call in editor
             StopAllCoroutines(); // Stop other running tasks
             StartCoroutine(DoAnimationLoop());
         }
@@ -39,12 +42,12 @@ namespace SDGA
         /// </summary>
         private IEnumerator Animate(float targetX)
         {
-            float startX = transform.position.x;
+            float x0 = transform.position.x;
             float timeElapsed = 0;
             while (timeElapsed < duration)
             {
                 var t =  FEaseInOutCubic(timeElapsed / duration); // Interpolate [0,1]
-                transform.position = new Vector3(startX + t* (targetX - startX), transform.position.y, transform.position.z); // Action
+                transform.position = new Vector3(x0 + t* (targetX - x0), transform.position.y, transform.position.z); // Action
                 yield return null; // Wait a frame
                 timeElapsed += Time.deltaTime; // Progress t
             }

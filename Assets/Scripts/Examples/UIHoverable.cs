@@ -11,9 +11,9 @@ namespace SDGA{
         [SerializeField] private float hoverScaleMult = 1.04f;
         [SerializeField] private float hoverAnimDur = 0.2f;
         [SerializeField] private EAnimationCurve animationCurve = EAnimationCurve.EaseOutQuart;
-        private float _startScale = 1.0f;
         
-        protected CancellationTokenSource animationCts;
+        private float _startScale = 1.0f;
+        private CancellationTokenSource _animationCts;
         
         /// <summary>  Scales a transform by a uniform factor x. </summary>
         private void UniformScale(float x) => transform.localScale = new Vector3(x, x, 1);
@@ -23,21 +23,16 @@ namespace SDGA{
             _startScale = transform.localScale.x;
         }
 
-        public virtual void OnPointerEnter(PointerEventData eventData)
+        public void OnPointerEnter(PointerEventData eventData)
         {
-            Utils.CancelAndDisposeNew(ref animationCts);
-            AnimationUtils.InterpAction(transform, UniformScale, transform.localScale.x, hoverScaleMult*_startScale, hoverAnimDur, animationCurve, animationCts.Token).Forget();
+            Utils.CancelAndDisposeNew(ref _animationCts, this);
+            AnimationUtils.InterpAction(transform, UniformScale, transform.localScale.x, hoverScaleMult*_startScale, hoverAnimDur, animationCurve, _animationCts.Token).Forget();
         }
 
-        public virtual void OnPointerExit(PointerEventData eventData)
+        public void OnPointerExit(PointerEventData eventData)
         {
-            Utils.CancelAndDisposeNew(ref animationCts);
-            AnimationUtils.InterpAction(transform, UniformScale, transform.localScale.x, _startScale, hoverAnimDur, animationCurve, animationCts.Token).Forget();
-        }
-
-        protected void OnDestroy()
-        {
-            Utils.CancelAndDispose(ref animationCts);
+            Utils.CancelAndDisposeNew(ref _animationCts, this);
+            AnimationUtils.InterpAction(transform, UniformScale, transform.localScale.x, _startScale, hoverAnimDur, animationCurve, _animationCts.Token).Forget();
         }
     }
 }
