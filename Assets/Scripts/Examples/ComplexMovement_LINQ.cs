@@ -60,10 +60,10 @@ namespace SDGA
                     delayInSec: DelayFromIndex(++i), 
                     ct);
 
-            UniTask dummyHandle = Example1(ct);
+            UniTask dummyHandle = Example1(ct); // Like a marble, this 
             UniTask emptyHandle = true ? default : Example3(ct); // Note Example3 is never executed  
             
-            // Now let's wait for three different sets of animations (running them all at the same time)
+            // Now let's wait for four different sets of animations (running them all at the same time)
             await UniTask.WhenAll(
                 UniTask.WhenAll(animationsOut), // 1. the set of all children animations. NOTE now this is iterated over and executed
                 Example2(ct),                   // 2. Another animation just to prove a point that this can be done as many times as needed 

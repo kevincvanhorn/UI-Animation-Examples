@@ -69,7 +69,7 @@ namespace SDGA
         /// <summary>
         /// Set the x component of this rect anchored position.
         /// </summary>
-        private void SetRectX(float x) => _rect.anchoredPosition = new Vector2(x, _rect.anchoredPosition.y);
+        public void SetRectX(float x) => _rect.anchoredPosition = new Vector2(x, _rect.anchoredPosition.y);
 
         /// <summary>
         /// This is what we were doing before in <see cref="SimpleMovement_UniTask"/> using FEaseInOutCubic
